@@ -493,116 +493,445 @@ def analysis_page():
 
     trainer = st.session_state.trainer
     results = st.session_state.results
+    preprocessor = st.session_state.preprocessor
 
-    # Results table
-    st.subheader("Model Performance Metrics")
-    results_df = trainer.get_results_dataframe()
-    st.dataframe(results_df.style.highlight_max(axis=0, subset=['train_r2', 'test_r2']))
+    # Model selector for detailed analysis
+    st.subheader("🔍 Select Model for Detailed Analysis")
+    selected_model = st.selectbox(
+        "Choose a model to analyze",
+        list(trainer.models.keys()),
+        key="analysis_model_select"
+    )
 
-    # Best model
-    best_model_name, best_result = trainer.get_best_model(metric="test_r2")
-    st.info(f"**Best Model:** {best_model_name} (Test R² = {best_result['test_r2']:.4f})")
+    # Create tabs for different analysis views
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📊 Performance Overview",
+        "⚙️ Parameters & Impact",
+        "📈 Predictions Analysis",
+        "🎯 Feature Importance"
+    ])
 
-    # Overfitting detection
-    st.subheader("Overfitting Analysis")
+    # TAB 1: Performance Overview
+    with tab1:
+        # Results table
+        st.markdown("### Model Performance Metrics")
+        results_df = trainer.get_results_dataframe()
 
-    threshold = st.slider("R² Gap Threshold", 0.0, 0.3, 0.1, 0.01)
-    overfitting_status = trainer.detect_overfitting(threshold=threshold)
+        # Format the dataframe for better display
+        display_df = results_df.copy()
+        for col in display_df.columns:
+            if col != 'model_name' and col != 'parameters':
+                if 'r2' in col:
+                    display_df[col] = display_df[col].apply(lambda x: f"{x:.4f}")
+                elif 'rmse' in col or 'mae' in col or 'std' in col:
+                    display_df[col] = display_df[col].apply(lambda x: f"{x:.2f}")
 
-    # Create visualization
-    fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        st.dataframe(display_df.style.highlight_max(axis=0, subset=['train_r2', 'test_r2']))
 
-    # 1. Train vs Test RMSE
-    ax1 = axes[0, 0]
-    models = list(results.keys())
-    train_rmse = [results[m]['train_rmse'] for m in models]
-    test_rmse = [results[m]['test_rmse'] for m in models]
+        # Best model
+        best_model_name, best_result = trainer.get_best_model(metric="test_r2")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric("🏆 Best Model", best_model_name)
+        with col2:
+            st.metric("Test R²", f"{best_result['test_r2']:.4f}")
+        with col3:
+            st.metric("Test RMSE", f"{best_result['test_rmse']:.2f}")
 
-    x = np.arange(len(models))
-    width = 0.35
+        # Overfitting detection
+        st.markdown("### Overfitting Analysis")
+        threshold = st.slider("R² Gap Threshold", 0.0, 0.3, 0.1, 0.01)
+        overfitting_status = trainer.detect_overfitting(threshold=threshold)
 
-    ax1.bar(x - width/2, train_rmse, width, label='Train RMSE', alpha=0.8)
-    ax1.bar(x + width/2, test_rmse, width, label='Test RMSE', alpha=0.8)
-    ax1.set_xlabel('Model')
-    ax1.set_ylabel('RMSE')
-    ax1.set_title('Train vs Test RMSE')
-    ax1.set_xticks(x)
-    ax1.set_xticklabels(models, rotation=45, ha='right')
-    ax1.legend()
-    ax1.grid(True, alpha=0.3)
+        # Create visualization
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
 
-    # 2. R² Comparison
-    ax2 = axes[0, 1]
-    train_r2 = [results[m]['train_r2'] for m in models]
-    test_r2 = [results[m]['test_r2'] for m in models]
+        # 1. Train vs Test RMSE
+        ax1 = axes[0, 0]
+        models = list(results.keys())
+        train_rmse = [results[m]['train_rmse'] for m in models]
+        test_rmse = [results[m]['test_rmse'] for m in models]
 
-    ax2.bar(x - width/2, train_r2, width, label='Train R²', alpha=0.8)
-    ax2.bar(x + width/2, test_r2, width, label='Test R²', alpha=0.8)
-    ax2.set_xlabel('Model')
-    ax2.set_ylabel('R² Score')
-    ax2.set_title('Train vs Test R²')
-    ax2.set_xticks(x)
-    ax2.set_xticklabels(models, rotation=45, ha='right')
-    ax2.legend()
-    ax2.grid(True, alpha=0.3)
+        x = np.arange(len(models))
+        width = 0.35
 
-    # 3. Overfitting Gap
-    ax3 = axes[1, 0]
-    r2_gaps = [results[m]['r2_gap'] for m in models]
-    colors = ['red' if gap > threshold else 'green' for gap in r2_gaps]
+        ax1.bar(x - width/2, train_rmse, width, label='Train RMSE', alpha=0.8, color='#1f77b4')
+        ax1.bar(x + width/2, test_rmse, width, label='Test RMSE', alpha=0.8, color='#ff7f0e')
+        ax1.set_xlabel('Model', fontsize=10)
+        ax1.set_ylabel('RMSE', fontsize=10)
+        ax1.set_title('Train vs Test RMSE', fontsize=12, fontweight='bold')
+        ax1.set_xticks(x)
+        ax1.set_xticklabels(models, rotation=45, ha='right', fontsize=9)
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
 
-    ax3.bar(models, r2_gaps, color=colors, alpha=0.7)
-    ax3.axhline(y=threshold, color='r', linestyle='--', label=f'Threshold ({threshold})')
-    ax3.set_xlabel('Model')
-    ax3.set_ylabel('R² Gap (Train - Test)')
-    ax3.set_title('Overfitting Gap Analysis')
-    ax3.set_xticklabels(models, rotation=45, ha='right')
-    ax3.legend()
-    ax3.grid(True, alpha=0.3)
+        # 2. R² Comparison
+        ax2 = axes[0, 1]
+        train_r2 = [results[m]['train_r2'] for m in models]
+        test_r2 = [results[m]['test_r2'] for m in models]
 
-    # 4. Cross-validation RMSE
-    ax4 = axes[1, 1]
-    cv_rmse = [results[m]['cv_rmse'] for m in models]
-    cv_std = [results[m]['cv_std'] for m in models]
+        ax2.bar(x - width/2, train_r2, width, label='Train R²', alpha=0.8, color='#2ca02c')
+        ax2.bar(x + width/2, test_r2, width, label='Test R²', alpha=0.8, color='#d62728')
+        ax2.set_xlabel('Model', fontsize=10)
+        ax2.set_ylabel('R² Score', fontsize=10)
+        ax2.set_title('Train vs Test R²', fontsize=12, fontweight='bold')
+        ax2.set_xticks(x)
+        ax2.set_xticklabels(models, rotation=45, ha='right', fontsize=9)
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
 
-    ax4.bar(models, cv_rmse, yerr=cv_std, capsize=5, alpha=0.7)
-    ax4.set_xlabel('Model')
-    ax4.set_ylabel('CV RMSE')
-    ax4.set_title('Cross-Validation RMSE (with std)')
-    ax4.set_xticklabels(models, rotation=45, ha='right')
-    ax4.grid(True, alpha=0.3)
+        # 3. Overfitting Gap
+        ax3 = axes[1, 0]
+        r2_gaps = [results[m]['r2_gap'] for m in models]
+        colors = ['#d62728' if gap > threshold else '#2ca02c' for gap in r2_gaps]
 
-    plt.tight_layout()
-    st.pyplot(fig)
+        ax3.bar(models, r2_gaps, color=colors, alpha=0.7)
+        ax3.axhline(y=threshold, color='r', linestyle='--', linewidth=2, label=f'Threshold ({threshold})')
+        ax3.set_xlabel('Model', fontsize=10)
+        ax3.set_ylabel('R² Gap (Train - Test)', fontsize=10)
+        ax3.set_title('Overfitting Gap Analysis', fontsize=12, fontweight='bold')
+        ax3.set_xticklabels(models, rotation=45, ha='right', fontsize=9)
+        ax3.legend()
+        ax3.grid(True, alpha=0.3)
 
-    # Overfitting status table
-    st.subheader("Overfitting Status")
+        # 4. Cross-validation RMSE
+        ax4 = axes[1, 1]
+        cv_rmse = [results[m]['cv_rmse'] for m in models]
+        cv_std = [results[m]['cv_std'] for m in models]
 
-    status_data = []
-    for model_name, status in overfitting_status.items():
-        status_data.append({
-            "Model": model_name,
-            "Is Overfitting": "⚠️ YES" if status["is_overfitting"] else "✅ NO",
-            "R² Gap": f"{status['r2_gap']:.4f}",
-            "Train R²": f"{status['train_r2']:.4f}",
-            "Test R²": f"{status['test_r2']:.4f}"
-        })
+        ax4.bar(models, cv_rmse, yerr=cv_std, capsize=5, alpha=0.7, color='#9467bd')
+        ax4.set_xlabel('Model', fontsize=10)
+        ax4.set_ylabel('CV RMSE', fontsize=10)
+        ax4.set_title('Cross-Validation RMSE (with std)', fontsize=12, fontweight='bold')
+        ax4.set_xticklabels(models, rotation=45, ha='right', fontsize=9)
+        ax4.grid(True, alpha=0.3)
 
-    status_df = pd.DataFrame(status_data)
-    st.dataframe(status_df)
+        plt.tight_layout()
+        st.pyplot(fig)
 
-    # Recommendations
-    st.subheader("Recommendations")
+        # Overfitting status table
+        st.markdown("### Overfitting Status")
+        status_data = []
+        for model_name, status in overfitting_status.items():
+            status_data.append({
+                "Model": model_name,
+                "Is Overfitting": "⚠️ YES" if status["is_overfitting"] else "✅ NO",
+                "R² Gap": f"{status['r2_gap']:.4f}",
+                "Train R²": f"{status['train_r2']:.4f}",
+                "Test R²": f"{status['test_r2']:.4f}"
+            })
 
-    for model_name, status in overfitting_status.items():
-        if status["is_overfitting"]:
-            st.warning(f"**{model_name}** is overfitting. Consider:")
+        status_df = pd.DataFrame(status_data)
+        st.dataframe(status_df, use_container_width=True)
+
+        # Recommendations
+        st.markdown("### 💡 Recommendations")
+        for model_name, status in overfitting_status.items():
+            if status["is_overfitting"]:
+                with st.expander(f"⚠️ {model_name} - Overfitting Detected", expanded=True):
+                    st.markdown(f"""
+                    **Current R² Gap:** {status['r2_gap']:.4f} (threshold: {threshold})
+
+                    **Recommended Actions:**
+                    - 🔧 Reduce model complexity (decrease `max_depth`, `n_estimators`)
+                    - 📊 Increase regularization (increase `reg_alpha`, `reg_lambda` for XGBoost, increase `C` for SVR)
+                    - 📈 Collect more training data
+                    - 🎯 Use feature selection to reduce dimensionality
+                    - 🔄 Increase `min_samples_split` and `min_samples_leaf` for tree-based models
+                    """)
+
+    # TAB 2: Parameters & Impact
+    with tab2:
+        st.markdown(f"### ⚙️ Parameters for: **{selected_model}**")
+
+        # Display parameters in a nice format
+        params = trainer.model_params[selected_model]
+        if params:
+            col1, col2 = st.columns(2)
+            param_items = list(params.items())
+            mid = len(param_items) // 2
+
+            with col1:
+                for key, value in param_items[:mid]:
+                    st.metric(label=key, value=str(value))
+
+            with col2:
+                for key, value in param_items[mid:]:
+                    st.metric(label=key, value=str(value))
+        else:
+            st.info("This model has no tunable hyperparameters.")
+
+        # Performance metrics for selected model
+        st.markdown("### 📊 Performance Metrics")
+        model_result = results[selected_model]
+
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Train RMSE", f"{model_result['train_rmse']:.2f}")
+        with col2:
+            st.metric("Test RMSE", f"{model_result['test_rmse']:.2f}")
+        with col3:
+            st.metric("Train R²", f"{model_result['train_r2']:.4f}")
+        with col4:
+            st.metric("Test R²", f"{model_result['test_r2']:.4f}")
+
+        # Parameter Impact Analysis
+        st.markdown("### 📈 Parameter Impact Analysis")
+        st.markdown("""
+        This section shows how the current parameters affect model behavior:
+        """)
+
+        # Create parameter impact visualization
+        impact_data = []
+        for model_name, model_params in trainer.model_params.items():
+            model_res = results[model_name]
+            impact_data.append({
+                'Model': model_name,
+                'Test R²': model_res['test_r2'],
+                'Overfitting Gap': model_res.get('r2_gap', 0),
+                'CV RMSE': model_res['cv_rmse']
+            })
+
+        impact_df = pd.DataFrame(impact_data)
+
+        # Visualize parameter impact
+        fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Plot 1: Test R² vs Overfitting Gap
+        ax1 = axes[0]
+        scatter = ax1.scatter(impact_df['Overfitting Gap'], impact_df['Test R²'],
+                            s=200, alpha=0.6, c=range(len(impact_df)), cmap='viridis')
+
+        for idx, row in impact_df.iterrows():
+            ax1.annotate(row['Model'], (row['Overfitting Gap'], row['Test R²']),
+                        fontsize=9, ha='center', va='bottom')
+
+        ax1.set_xlabel('Overfitting Gap (R²)', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Test R²', fontsize=11, fontweight='bold')
+        ax1.set_title('Model Performance vs Overfitting', fontsize=12, fontweight='bold')
+        ax1.grid(True, alpha=0.3)
+        ax1.axvline(x=threshold, color='r', linestyle='--', alpha=0.5, label=f'Threshold ({threshold})')
+        ax1.legend()
+
+        # Plot 2: CV RMSE comparison
+        ax2 = axes[1]
+        colors_cv = sns.color_palette('viridis', len(impact_df))
+        bars = ax2.barh(impact_df['Model'], impact_df['CV RMSE'], color=colors_cv, alpha=0.7)
+        ax2.set_xlabel('Cross-Validation RMSE', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Model', fontsize=11, fontweight='bold')
+        ax2.set_title('Cross-Validation Performance', fontsize=12, fontweight='bold')
+        ax2.grid(True, alpha=0.3, axis='x')
+
+        # Add value labels
+        for i, bar in enumerate(bars):
+            width = bar.get_width()
+            ax2.text(width, bar.get_y() + bar.get_height()/2,
+                    f'{width:.2f}', ha='left', va='center', fontsize=9, fontweight='bold')
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Show interpretation
+        st.markdown("### 🎯 Interpretation Guide")
+        st.markdown("""
+        - **Top-left quadrant** (low overfitting, high R²): ✅ Ideal - well-generalized model
+        - **Top-right quadrant** (high overfitting, high R²): ⚠️ Good train performance but overfitting
+        - **Bottom-left quadrant** (low overfitting, low R²): ⚠️ Underfitting - increase model complexity
+        - **Bottom-right quadrant** (high overfitting, low R²): ❌ Poor performance overall
+        """)
+
+    # TAB 3: Predictions Analysis
+    with tab3:
+        st.markdown(f"### 📈 Prediction Analysis for: **{selected_model}**")
+
+        model = trainer.models[selected_model]
+
+        # Get predictions
+        y_train_pred = model.predict(trainer.X_train)
+        y_test_pred = model.predict(trainer.X_test)
+
+        # Calculate residuals
+        train_residuals = trainer.y_train - y_train_pred
+        test_residuals = trainer.y_test - y_test_pred
+
+        # Create visualizations
+        fig, axes = plt.subplots(2, 2, figsize=(14, 11))
+
+        # 1. Actual vs Predicted (Train)
+        ax1 = axes[0, 0]
+        ax1.scatter(trainer.y_train, y_train_pred, alpha=0.5, s=20, color='#1f77b4')
+        ax1.plot([trainer.y_train.min(), trainer.y_train.max()],
+                [trainer.y_train.min(), trainer.y_train.max()],
+                'r--', lw=2, label='Perfect Prediction')
+        ax1.set_xlabel('Actual Values (Train)', fontsize=10, fontweight='bold')
+        ax1.set_ylabel('Predicted Values', fontsize=10, fontweight='bold')
+        ax1.set_title(f'Train Set: Actual vs Predicted\nR² = {model_result["train_r2"]:.4f}',
+                     fontsize=11, fontweight='bold')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+
+        # 2. Actual vs Predicted (Test)
+        ax2 = axes[0, 1]
+        ax2.scatter(trainer.y_test, y_test_pred, alpha=0.5, s=20, color='#ff7f0e')
+        ax2.plot([trainer.y_test.min(), trainer.y_test.max()],
+                [trainer.y_test.min(), trainer.y_test.max()],
+                'r--', lw=2, label='Perfect Prediction')
+        ax2.set_xlabel('Actual Values (Test)', fontsize=10, fontweight='bold')
+        ax2.set_ylabel('Predicted Values', fontsize=10, fontweight='bold')
+        ax2.set_title(f'Test Set: Actual vs Predicted\nR² = {model_result["test_r2"]:.4f}',
+                     fontsize=11, fontweight='bold')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        # 3. Residuals Distribution (Train)
+        ax3 = axes[1, 0]
+        ax3.hist(train_residuals, bins=50, alpha=0.7, color='#1f77b4', edgecolor='black')
+        ax3.axvline(x=0, color='r', linestyle='--', lw=2)
+        ax3.set_xlabel('Residuals (Train)', fontsize=10, fontweight='bold')
+        ax3.set_ylabel('Frequency', fontsize=10, fontweight='bold')
+        ax3.set_title(f'Train Residuals Distribution\nMean: {train_residuals.mean():.2f}, Std: {train_residuals.std():.2f}',
+                     fontsize=11, fontweight='bold')
+        ax3.grid(True, alpha=0.3)
+
+        # 4. Residuals Distribution (Test)
+        ax4 = axes[1, 1]
+        ax4.hist(test_residuals, bins=50, alpha=0.7, color='#ff7f0e', edgecolor='black')
+        ax4.axvline(x=0, color='r', linestyle='--', lw=2)
+        ax4.set_xlabel('Residuals (Test)', fontsize=10, fontweight='bold')
+        ax4.set_ylabel('Frequency', fontsize=10, fontweight='bold')
+        ax4.set_title(f'Test Residuals Distribution\nMean: {test_residuals.mean():.2f}, Std: {test_residuals.std():.2f}',
+                     fontsize=11, fontweight='bold')
+        ax4.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Residual plots
+        st.markdown("### 📉 Residual Analysis")
+        fig2, axes2 = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Residuals vs Predicted (Train)
+        ax1 = axes2[0]
+        ax1.scatter(y_train_pred, train_residuals, alpha=0.5, s=20, color='#1f77b4')
+        ax1.axhline(y=0, color='r', linestyle='--', lw=2)
+        ax1.set_xlabel('Predicted Values (Train)', fontsize=10, fontweight='bold')
+        ax1.set_ylabel('Residuals', fontsize=10, fontweight='bold')
+        ax1.set_title('Train: Residuals vs Predicted', fontsize=11, fontweight='bold')
+        ax1.grid(True, alpha=0.3)
+
+        # Residuals vs Predicted (Test)
+        ax2 = axes2[1]
+        ax2.scatter(y_test_pred, test_residuals, alpha=0.5, s=20, color='#ff7f0e')
+        ax2.axhline(y=0, color='r', linestyle='--', lw=2)
+        ax2.set_xlabel('Predicted Values (Test)', fontsize=10, fontweight='bold')
+        ax2.set_ylabel('Residuals', fontsize=10, fontweight='bold')
+        ax2.set_title('Test: Residuals vs Predicted', fontsize=11, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        st.pyplot(fig2)
+
+        st.markdown("""
+        **Residual Analysis Interpretation:**
+        - **Good model**: Residuals should be randomly scattered around zero with no clear pattern
+        - **Heteroscedasticity**: If residuals fan out, the model's error variance is not constant
+        - **Non-linear patterns**: Curved patterns indicate the model is missing non-linear relationships
+        - **Normal distribution**: Residuals should be approximately normally distributed around zero
+        """)
+
+    # TAB 4: Feature Importance
+    with tab4:
+        st.markdown(f"### 🎯 Feature Importance for: **{selected_model}**")
+
+        model = trainer.models[selected_model]
+
+        # Check if model supports feature importance
+        if hasattr(model, 'feature_importances_'):
+            # Get feature names from preprocessor
+            if hasattr(preprocessor, 'feature_names_out_'):
+                feature_names = preprocessor.feature_names_out_
+            else:
+                feature_names = [f"Feature {i}" for i in range(trainer.X_train.shape[1])]
+
+            importances = model.feature_importances_
+            indices = np.argsort(importances)[::-1]
+
+            # Display top features
+            n_top = min(20, len(feature_names))
+
+            fig, ax = plt.subplots(figsize=(12, max(6, n_top * 0.3)))
+
+            colors = sns.color_palette('viridis', n_top)
+            bars = ax.barh(range(n_top), importances[indices[:n_top]], color=colors, alpha=0.8)
+            ax.set_yticks(range(n_top))
+            ax.set_yticklabels([feature_names[i] for i in indices[:n_top]], fontsize=9)
+            ax.set_xlabel('Importance', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Feature', fontsize=11, fontweight='bold')
+            ax.set_title(f'Top {n_top} Feature Importances', fontsize=12, fontweight='bold')
+            ax.invert_yaxis()
+            ax.grid(True, alpha=0.3, axis='x')
+
+            # Add value labels
+            for i, bar in enumerate(bars):
+                width = bar.get_width()
+                ax.text(width, bar.get_y() + bar.get_height()/2,
+                       f'{width:.4f}', ha='left', va='center', fontsize=8)
+
+            plt.tight_layout()
+            st.pyplot(fig)
+
+            # Show interpretation
             st.markdown("""
-            - Reducing model complexity (decrease max_depth, n_estimators)
-            - Increasing regularization (increase reg_alpha, reg_lambda for XGBoost)
-            - Collecting more training data
-            - Using feature selection to reduce dimensionality
+            **Feature Importance Interpretation:**
+            - Higher values indicate features that have more influence on the model's predictions
+            - These importances are calculated based on how much each feature decreases impurity (for tree-based models)
+            - Focus on the top features when selecting features or explaining model behavior
             """)
+
+        elif hasattr(model, 'coef_'):
+            # For linear models, show coefficients
+            if hasattr(preprocessor, 'feature_names_out_'):
+                feature_names = preprocessor.feature_names_out_
+            else:
+                feature_names = [f"Feature {i}" for i in range(len(model.coef_))]
+
+            coef = model.coef_
+            indices = np.argsort(np.abs(coef))[::-1]
+
+            n_top = min(20, len(feature_names))
+
+            fig, ax = plt.subplots(figsize=(12, max(6, n_top * 0.3)))
+
+            colors = ['#2ca02c' if c > 0 else '#d62728' for c in coef[indices[:n_top]]]
+            bars = ax.barh(range(n_top), coef[indices[:n_top]], color=colors, alpha=0.8)
+            ax.set_yticks(range(n_top))
+            ax.set_yticklabels([feature_names[i] for i in indices[:n_top]], fontsize=9)
+            ax.set_xlabel('Coefficient Value', fontsize=11, fontweight='bold')
+            ax.set_ylabel('Feature', fontsize=11, fontweight='bold')
+            ax.set_title(f'Top {n_top} Feature Coefficients (by magnitude)', fontsize=12, fontweight='bold')
+            ax.axvline(x=0, color='black', linestyle='-', lw=1)
+            ax.invert_yaxis()
+            ax.grid(True, alpha=0.3, axis='x')
+
+            # Add value labels
+            for i, bar in enumerate(bars):
+                width = bar.get_width()
+                label_x = width + (0.01 * (ax.get_xlim()[1] - ax.get_xlim()[0])) if width > 0 else width - (0.01 * (ax.get_xlim()[1] - ax.get_xlim()[0]))
+                ax.text(label_x, bar.get_y() + bar.get_height()/2,
+                       f'{width:.4f}', ha='left' if width > 0 else 'right', va='center', fontsize=8)
+
+            plt.tight_layout()
+            st.pyplot(fig)
+
+            st.markdown("""
+            **Coefficient Interpretation:**
+            - **Positive coefficients** (green): Increase in feature value leads to increase in prediction
+            - **Negative coefficients** (red): Increase in feature value leads to decrease in prediction
+            - **Magnitude**: Larger absolute values indicate stronger influence on predictions
+            - Values shown are for standardized features, so they can be compared directly
+            """)
+        else:
+            st.info(f"Feature importance is not available for {selected_model}. This metric is only supported for tree-based models and linear models.")
 
 
 def parameters_page():
