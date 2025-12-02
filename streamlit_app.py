@@ -394,48 +394,51 @@ def train_models(df, model_params, test_size, cv_folds, use_capping, capping_per
 
 
 def prediction_page():
-    """Page for making predictions."""
-    st.header("🎯 Make Predictions")
+    """Page for making predictions with live updates."""
+    st.header("🎯 Live Price Predictions")
 
     if not st.session_state.trained:
         st.warning("Please train models first on the Data & Training page!")
         return
 
-    # Model selection
-    model_name = st.selectbox(
-        "Select Model",
-        list(st.session_state.trainer.models.keys())
-    )
+    st.markdown("### 🏠 Adjust Property Features")
+    st.markdown("*Predictions update automatically as you change values - watch the prices change live!*")
 
-    st.subheader("Enter Property Features")
-
-    # Create input form
+    # Create input form with sliders for better interactivity
     col1, col2, col3 = st.columns(3)
 
     features = {}
 
     with col1:
-        st.markdown("**Basic Features**")
-        features["living_area"] = st.number_input("Living Area (m²)", 20, 1000, 100)
-        features["number_of_rooms"] = st.number_input("Number of Rooms", 1, 20, 3)
-        features["number_of_facades"] = st.number_input("Number of Facades", 1, 4, 2)
-        features["postal_code"] = st.number_input("Postal Code", 1000, 9999, 1000)
+        st.markdown("**📐 Basic Features**")
+        features["living_area"] = st.slider("Living Area (m²)", 20, 500, 100, 5,
+                                            help="Total living space in square meters")
+        features["number_of_rooms"] = st.slider("Number of Rooms", 1, 10, 3,
+                                                help="Total number of rooms")
+        features["number_of_facades"] = st.slider("Number of Facades", 1, 4, 2,
+                                                  help="Number of building facades")
+        features["postal_code"] = st.number_input("Postal Code", 1000, 9999, 1000,
+                                                   help="Belgian postal code")
 
     with col2:
-        st.markdown("**Property Details**")
+        st.markdown("**🏡 Property Details**")
         features["subtype_of_property"] = st.selectbox(
             "Property Subtype",
-            ["house", "apartment", "villa", "bungalow", "duplex", "studio"]
+            ["house", "apartment", "villa", "bungalow", "duplex", "studio"],
+            help="Type of property"
         )
         features["state_of_building"] = st.selectbox(
             "Building State",
-            ["good", "as_new", "to_renovate", "just_renovated"]
+            ["good", "as_new", "to_renovate", "just_renovated"],
+            help="Overall condition of the building"
         )
-        features["garden_surface"] = st.number_input("Garden Surface (m²)", 0, 2000, 0)
-        features["terrace_surface"] = st.number_input("Terrace Surface (m²)", 0, 200, 0)
+        features["garden_surface"] = st.slider("Garden Surface (m²)", 0, 500, 0, 10,
+                                               help="Garden area in square meters")
+        features["terrace_surface"] = st.slider("Terrace Surface (m²)", 0, 100, 0, 5,
+                                                help="Terrace area in square meters")
 
     with col3:
-        st.markdown("**Amenities**")
+        st.markdown("**✨ Amenities**")
         features["equipped_kitchen"] = int(st.checkbox("Equipped Kitchen", value=True))
         features["furnished"] = int(st.checkbox("Furnished"))
         features["open_fire"] = int(st.checkbox("Open Fire"))
@@ -443,44 +446,314 @@ def prediction_page():
         features["garden"] = int(st.checkbox("Garden"))
         features["swimming_pool"] = int(st.checkbox("Swimming Pool"))
 
-    # Predict button
-    if st.button("🔮 Predict Price", type="primary"):
-        try:
-            # Convert to DataFrame
-            df_pred = pd.DataFrame([features])
+    # Perform prediction automatically (no button needed)
+    try:
+        # Convert to DataFrame
+        df_pred = pd.DataFrame([features])
 
-            # Preprocess
-            X_pred = st.session_state.preprocessor.transform(df_pred)
+        # Preprocess
+        X_pred = st.session_state.preprocessor.transform(df_pred)
 
-            # Predict
-            y_pred = st.session_state.trainer.predict(model_name, X_pred)
+        # Get predictions from all models
+        all_predictions = {}
+        for name, model in st.session_state.trainer.models.items():
+            y = model.predict(X_pred)
+            p = st.session_state.preprocessor.inverse_transform_target(y)[0]
+            all_predictions[name] = p
 
-            # Inverse transform
-            price = st.session_state.preprocessor.inverse_transform_target(y_pred)[0]
+        # Display results
+        st.markdown("---")
+        st.markdown("## 💰 Predicted Prices")
 
-            # Display prediction
-            st.success(f"### Predicted Price: €{price:,.2f}")
+        # Best model prediction (highlighted)
+        best_model_name, best_result = st.session_state.trainer.get_best_model(metric="test_r2")
+        best_price = all_predictions[best_model_name]
 
-            # Show predictions from all models
-            st.subheader("Predictions from All Models")
-
-            all_predictions = {}
-            for name, model in st.session_state.trainer.models.items():
-                y = model.predict(X_pred)
-                p = st.session_state.preprocessor.inverse_transform_target(y)[0]
-                all_predictions[name] = p
-
-            pred_df = pd.DataFrame.from_dict(
-                all_predictions,
-                orient='index',
-                columns=['Predicted Price (€)']
+        col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+        with col1:
+            st.metric(
+                label=f"🏆 Best Model: {best_model_name}",
+                value=f"€{best_price:,.0f}",
+                help=f"Prediction from the best-performing model (R² = {best_result['test_r2']:.4f})"
             )
-            pred_df['Predicted Price (€)'] = pred_df['Predicted Price (€)'].apply(lambda x: f"€{x:,.2f}")
+        with col2:
+            min_price = min(all_predictions.values())
+            st.metric("Lowest Estimate", f"€{min_price:,.0f}")
+        with col3:
+            max_price = max(all_predictions.values())
+            st.metric("Highest Estimate", f"€{max_price:,.0f}")
+        with col4:
+            mean_price = np.mean(list(all_predictions.values()))
+            st.metric("Average", f"€{mean_price:,.0f}")
 
-            st.dataframe(pred_df)
+        # Save prediction to JSON
+        st.markdown("### 💾 Save Prediction")
 
-        except Exception as e:
-            st.error(f"Error during prediction: {str(e)}")
+        # Prepare prediction data for JSON export
+        prediction_data = {
+            "timestamp": pd.Timestamp.now().isoformat(),
+            "input_features": features,
+            "predictions": {
+                model_name: {
+                    "price_eur": float(price),
+                    "model_performance": {
+                        "test_r2": float(st.session_state.results[model_name]['test_r2']),
+                        "test_rmse": float(st.session_state.results[model_name]['test_rmse'])
+                    }
+                }
+                for model_name, price in all_predictions.items()
+            },
+            "best_model": best_model_name,
+            "best_prediction_eur": float(best_price),
+            "price_statistics": {
+                "mean": float(mean_price),
+                "median": float(np.median(list(all_predictions.values()))),
+                "min": float(min_price),
+                "max": float(max_price),
+                "std": float(np.std(list(all_predictions.values())))
+            }
+        }
+
+        json_str = json.dumps(prediction_data, indent=2)
+
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.download_button(
+                label="📥 Download Prediction as JSON",
+                data=json_str,
+                file_name=f"property_prediction_{pd.Timestamp.now().strftime('%Y%m%d_%H%M%S')}.json",
+                mime="application/json",
+                help="Download current prediction with all model results"
+            )
+        with col2:
+            with st.expander("Preview JSON"):
+                st.code(json_str, language='json')
+
+        # Visualize predictions from all models
+        st.markdown("### 📊 Predictions by Model")
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Bar chart
+        models = list(all_predictions.keys())
+        prices = list(all_predictions.values())
+        colors = ['#FFD700' if m == best_model_name else '#1f77b4' for m in models]
+
+        bars = ax1.barh(models, prices, color=colors, alpha=0.7, edgecolor='black')
+        ax1.set_xlabel('Predicted Price (€)', fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Model', fontsize=11, fontweight='bold')
+        ax1.set_title('Price Predictions Comparison', fontsize=12, fontweight='bold')
+        ax1.grid(True, alpha=0.3, axis='x')
+
+        # Add value labels
+        for i, bar in enumerate(bars):
+            width = bar.get_width()
+            ax1.text(width, bar.get_y() + bar.get_height()/2,
+                    f'€{width:,.0f}', ha='left', va='center', fontsize=9, fontweight='bold')
+
+        # Model performance vs prediction
+        model_r2 = [st.session_state.results[m]['test_r2'] for m in models]
+        scatter = ax2.scatter(model_r2, prices, s=200, alpha=0.6, c=range(len(models)), cmap='viridis')
+
+        for i, model in enumerate(models):
+            ax2.annotate(model, (model_r2[i], prices[i]),
+                        fontsize=8, ha='center', va='bottom')
+
+        ax2.set_xlabel('Model Test R²', fontsize=11, fontweight='bold')
+        ax2.set_ylabel('Predicted Price (€)', fontsize=11, fontweight='bold')
+        ax2.set_title('Model Performance vs Prediction', fontsize=12, fontweight='bold')
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Show price range and statistics
+        st.markdown("### 📈 Prediction Statistics")
+        col1, col2, col3, col4 = st.columns(4)
+
+        median_price = np.median(list(all_predictions.values()))
+        std_price = np.std(list(all_predictions.values()))
+        price_range = max_price - min_price
+
+        with col1:
+            st.metric("Mean Price", f"€{mean_price:,.0f}")
+        with col2:
+            st.metric("Median Price", f"€{median_price:,.0f}")
+        with col3:
+            st.metric("Std Deviation", f"€{std_price:,.0f}")
+        with col4:
+            st.metric("Price Range", f"€{price_range:,.0f}")
+
+        # Multi-Feature Impact Comparison
+        st.markdown("---")
+        st.markdown("### 🎨 Live Feature Impact Comparison")
+        st.markdown("*See how ALL key features affect the price simultaneously*")
+
+        # Calculate impact for multiple features
+        model = st.session_state.trainer.models[best_model_name]
+
+        features_to_compare = {
+            'living_area': (20, 500, 'Living Area (m²)', features['living_area']),
+            'number_of_rooms': (1, 10, 'Rooms', features['number_of_rooms']),
+            'garden_surface': (0, 500, 'Garden (m²)', features['garden_surface']),
+            'terrace_surface': (0, 100, 'Terrace (m²)', features['terrace_surface'])
+        }
+
+        # Create multi-feature comparison
+        fig, axes = plt.subplots(2, 2, figsize=(14, 10))
+        axes = axes.flatten()
+
+        for idx, (feature_name, (min_val, max_val, display_name, current_val)) in enumerate(features_to_compare.items()):
+            ax = axes[idx]
+
+            # Generate test values
+            test_values = np.linspace(min_val, max_val, 30)
+            impact_prices = []
+
+            for test_val in test_values:
+                test_features = features.copy()
+                test_features[feature_name] = test_val
+                df_test = pd.DataFrame([test_features])
+                X_test = st.session_state.preprocessor.transform(df_test)
+                y_test = model.predict(X_test)
+                p_test = st.session_state.preprocessor.inverse_transform_target(y_test)[0]
+                impact_prices.append(p_test)
+
+            # Plot
+            ax.plot(test_values, impact_prices, linewidth=2.5, color='#1f77b4')
+            ax.axvline(x=current_val, color='#d62728', linestyle='--', linewidth=2,
+                      label=f'Current: {current_val}')
+            ax.fill_between(test_values, impact_prices, alpha=0.3, color='#1f77b4')
+
+            ax.set_xlabel(display_name, fontsize=10, fontweight='bold')
+            ax.set_ylabel('Predicted Price (€)', fontsize=10, fontweight='bold')
+            ax.set_title(f'{display_name} Impact', fontsize=11, fontweight='bold')
+            ax.legend(fontsize=8)
+            ax.grid(True, alpha=0.3)
+            ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'€{x:,.0f}'))
+
+            # Add price change annotation
+            price_change = max(impact_prices) - min(impact_prices)
+            ax.text(0.02, 0.98, f'Range: €{price_change:,.0f}',
+                   transform=ax.transAxes, fontsize=9, va='top',
+                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        st.info("""
+        **🔍 How to use this visualization:**
+        - Each chart shows how changing ONE feature affects the predicted price
+        - The **blue line** shows the price trend across the feature's range
+        - The **red dashed line** marks your current value
+        - The **shaded area** emphasizes the price variation
+        - **Adjust the sliders above** and watch these charts update in real-time!
+        """)
+
+        # Feature Impact Analysis (Single Feature Deep Dive)
+        st.markdown("---")
+        st.markdown("### 🎯 Deep Dive: Single Feature Analysis")
+        st.markdown("*Select a feature for detailed sensitivity analysis*")
+
+        # Define features to analyze with their ranges
+        numerical_features = {
+            'living_area': (features['living_area'], 20, 500, 'Living Area (m²)'),
+            'number_of_rooms': (features['number_of_rooms'], 1, 10, 'Number of Rooms'),
+            'number_of_facades': (features['number_of_facades'], 1, 4, 'Number of Facades'),
+            'garden_surface': (features['garden_surface'], 0, 500, 'Garden Surface (m²)'),
+            'terrace_surface': (features['terrace_surface'], 0, 100, 'Terrace Surface (m²)')
+        }
+
+        # Create impact visualization
+        selected_feature = st.selectbox(
+            "Select feature to analyze",
+            list(numerical_features.keys()),
+            format_func=lambda x: numerical_features[x][3]
+        )
+
+        current_value, min_val, max_val, display_name = numerical_features[selected_feature]
+
+        # Generate range of values with more detail
+        test_values = np.linspace(min_val, max_val, 100)
+        impact_prices = []
+
+        for test_val in test_values:
+            test_features = features.copy()
+            test_features[selected_feature] = test_val
+            df_test = pd.DataFrame([test_features])
+            X_test = st.session_state.preprocessor.transform(df_test)
+            y_test = model.predict(X_test)
+            p_test = st.session_state.preprocessor.inverse_transform_target(y_test)[0]
+            impact_prices.append(p_test)
+
+        # Plot impact with enhanced visualization
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
+
+        # Left plot: Price vs Feature
+        ax1.plot(test_values, impact_prices, linewidth=3, color='#1f77b4', label='Price Prediction')
+        ax1.axvline(x=current_value, color='r', linestyle='--', linewidth=2,
+                   label=f'Current Value ({current_value})')
+        ax1.axhline(y=best_price, color='g', linestyle='--', linewidth=2, alpha=0.5,
+                   label=f'Current Prediction (€{best_price:,.0f})')
+        ax1.fill_between(test_values, impact_prices, alpha=0.3, color='#1f77b4')
+
+        ax1.set_xlabel(display_name, fontsize=11, fontweight='bold')
+        ax1.set_ylabel('Predicted Price (€)', fontsize=11, fontweight='bold')
+        ax1.set_title(f'Impact of {display_name} on Price ({best_model_name})',
+                     fontsize=12, fontweight='bold')
+        ax1.legend()
+        ax1.grid(True, alpha=0.3)
+        ax1.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'€{x:,.0f}'))
+
+        # Right plot: Price Change Rate (derivative)
+        price_changes = np.diff(impact_prices)
+        feature_steps = np.diff(test_values)
+        price_rate = price_changes / feature_steps
+
+        ax2.plot(test_values[:-1], price_rate, linewidth=2, color='#ff7f0e', label='Price Change Rate')
+        ax2.axvline(x=current_value, color='r', linestyle='--', linewidth=2,
+                   label=f'Current Value')
+        ax2.axhline(y=0, color='black', linestyle='-', linewidth=1, alpha=0.3)
+        ax2.fill_between(test_values[:-1], price_rate, alpha=0.3, color='#ff7f0e')
+
+        ax2.set_xlabel(display_name, fontsize=11, fontweight='bold')
+        ax2.set_ylabel('€ per unit increase', fontsize=11, fontweight='bold')
+        ax2.set_title(f'Marginal Impact: Price Change Rate', fontsize=12, fontweight='bold')
+        ax2.legend()
+        ax2.grid(True, alpha=0.3)
+
+        plt.tight_layout()
+        st.pyplot(fig)
+
+        # Calculate sensitivity metrics
+        price_change = max(impact_prices) - min(impact_prices)
+        avg_rate = price_change / (max_val - min_val)
+
+        # Find where rate of change is highest
+        max_rate_idx = np.argmax(np.abs(price_rate))
+        max_rate_value = test_values[max_rate_idx]
+        max_rate = price_rate[max_rate_idx]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.success(f"""
+            **📊 Sensitivity Analysis for {display_name}:**
+            - **Total price variation**: €{price_change:,.0f} across full range
+            - **Current value**: {current_value} → €{best_price:,.0f}
+            - **Average impact**: €{avg_rate:,.0f} per unit increase
+            """)
+        with col2:
+            st.info(f"""
+            **🎯 Marginal Impact Insights:**
+            - **Peak sensitivity** at {max_rate_value:.1f}: €{abs(max_rate):,.0f} per unit
+            - **Current rate** at {current_value}: €{abs(price_rate[np.argmin(np.abs(test_values[:-1] - current_value))]):,.0f} per unit
+            - {'📈 Increasing' if max_rate > 0 else '📉 Decreasing'} impact trend
+            """)
+
+    except Exception as e:
+        st.error(f"Error during prediction: {str(e)}")
+        import traceback
+        st.code(traceback.format_exc())
 
 
 def analysis_page():
