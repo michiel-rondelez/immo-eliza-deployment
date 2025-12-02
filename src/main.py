@@ -15,7 +15,7 @@ import sys
 sys.path.append(str(Path(__file__).parent))
 
 from preprocessing import FeaturePreprocessor
-from models import ModelTrainer
+from models import ModelTrainer, XGBOOST_AVAILABLE
 
 app = FastAPI(title="Immo Eliza ML API", version="1.0.0")
 
@@ -71,6 +71,7 @@ async def root():
     return {
         "message": "Immo Eliza ML API",
         "version": "1.0.0",
+        "xgboost_available": XGBOOST_AVAILABLE,
         "endpoints": {
             "/train": "Train models",
             "/predict": "Make predictions",
