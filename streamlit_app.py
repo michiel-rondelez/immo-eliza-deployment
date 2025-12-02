@@ -126,12 +126,33 @@ def data_and_training_page():
         st.markdown("**Support Vector Regression**")
         col1, col2 = st.columns(2)
         with col1:
-            kernel = st.selectbox("Kernel", ["rbf", "linear", "poly"], index=0)
-            C = st.number_input("C (Regularization)", 0.01, 10.0,
-                               default_params["SVR"]["C"], 0.1)
+            kernel = st.selectbox(
+                "Kernel",
+                ["rbf", "linear", "poly"],
+                index=0,
+                help="Kernel function: 'rbf' (radial basis) for non-linear relationships, 'linear' for linear relationships, 'poly' for polynomial relationships"
+            )
+            C = st.number_input(
+                "C (Regularization)",
+                0.01, 10.0,
+                default_params["SVR"]["C"],
+                0.1,
+                help="Regularization strength (inverse). Lower values = stronger regularization, higher values = less regularization. Controls the trade-off between model complexity and training error."
+            )
         with col2:
-            epsilon = st.number_input("Epsilon", 0.01, 1.0, 0.1, 0.01)
-            gamma = st.selectbox("Gamma", ["scale", "auto"], index=0)
+            epsilon = st.number_input(
+                "Epsilon",
+                0.01, 1.0,
+                0.1,
+                0.01,
+                help="Epsilon-tube parameter. Defines a margin of tolerance where no penalty is given to errors. Larger values = more tolerance for errors."
+            )
+            gamma = st.selectbox(
+                "Gamma",
+                ["scale", "auto"],
+                index=0,
+                help="Kernel coefficient. 'scale' uses 1/(n_features * X.var()), 'auto' uses 1/n_features. Controls how far the influence of a single training example reaches."
+            )
 
         model_params["SVR"] = {
             "kernel": kernel,
@@ -145,14 +166,31 @@ def data_and_training_page():
         st.markdown("**Decision Tree Regressor**")
         col1, col2 = st.columns(2)
         with col1:
-            dt_max_depth = st.slider("Max Depth", 2, 20,
-                                    default_params["Decision Tree"]["max_depth"])
-            dt_min_samples_split = st.slider("Min Samples Split", 2, 50,
-                                            default_params["Decision Tree"]["min_samples_split"])
+            dt_max_depth = st.slider(
+                "Max Depth",
+                2, 20,
+                default_params["Decision Tree"]["max_depth"],
+                help="Maximum depth of the tree. Deeper trees can capture more complex patterns but may overfit. Lower values prevent overfitting."
+            )
+            dt_min_samples_split = st.slider(
+                "Min Samples Split",
+                2, 50,
+                default_params["Decision Tree"]["min_samples_split"],
+                help="Minimum number of samples required to split an internal node. Higher values prevent overfitting by requiring more samples before making a split."
+            )
         with col2:
-            dt_min_samples_leaf = st.slider("Min Samples Leaf", 1, 30,
-                                           default_params["Decision Tree"]["min_samples_leaf"])
-            dt_random_state = st.number_input("Random State", 0, 100, 42)
+            dt_min_samples_leaf = st.slider(
+                "Min Samples Leaf",
+                1, 30,
+                default_params["Decision Tree"]["min_samples_leaf"],
+                help="Minimum number of samples required to be at a leaf node. Higher values create smoother models and prevent overfitting by ensuring each leaf represents enough samples."
+            )
+            dt_random_state = st.number_input(
+                "Random State",
+                0, 100,
+                42,
+                help="Seed for random number generation. Use the same value for reproducible results across multiple runs."
+            )
 
         model_params["Decision Tree"] = {
             "max_depth": dt_max_depth,
@@ -166,17 +204,45 @@ def data_and_training_page():
         st.markdown("**Random Forest Regressor**")
         col1, col2 = st.columns(2)
         with col1:
-            rf_n_estimators = st.slider("Number of Trees", 50, 500,
-                                       default_params["Random Forest"]["n_estimators"], 50)
-            rf_max_depth = st.slider("Max Depth", 2, 30,
-                                    default_params["Random Forest"]["max_depth"])
-            rf_min_samples_split = st.slider("Min Samples Split", 2, 30,
-                                            default_params["Random Forest"]["min_samples_split"])
+            rf_n_estimators = st.slider(
+                "Number of Trees",
+                50, 500,
+                default_params["Random Forest"]["n_estimators"],
+                50,
+                help="Number of decision trees in the forest. More trees generally improve performance but increase training time. Typical values: 100-500."
+            )
+            rf_max_depth = st.slider(
+                "Max Depth",
+                2, 30,
+                default_params["Random Forest"]["max_depth"],
+                help="Maximum depth of each tree. Deeper trees can model more complex patterns but may overfit. None means nodes expand until all leaves are pure."
+            )
+            rf_min_samples_split = st.slider(
+                "Min Samples Split",
+                2, 30,
+                default_params["Random Forest"]["min_samples_split"],
+                help="Minimum samples required to split a node. Higher values prevent overfitting by requiring more evidence before creating splits."
+            )
         with col2:
-            rf_min_samples_leaf = st.slider("Min Samples Leaf", 1, 20,
-                                           default_params["Random Forest"]["min_samples_leaf"])
-            rf_max_features = st.selectbox("Max Features", ["sqrt", "log2", None], index=0)
-            rf_random_state = st.number_input("Random State", 0, 100, 42, key="rf_rs")
+            rf_min_samples_leaf = st.slider(
+                "Min Samples Leaf",
+                1, 20,
+                default_params["Random Forest"]["min_samples_leaf"],
+                help="Minimum samples required at each leaf node. Higher values create smoother decision boundaries and prevent overfitting."
+            )
+            rf_max_features = st.selectbox(
+                "Max Features",
+                ["sqrt", "log2", None],
+                index=0,
+                help="Number of features to consider when looking for the best split. 'sqrt' uses sqrt(n_features), 'log2' uses log2(n_features), None uses all features. Lower values increase diversity between trees."
+            )
+            rf_random_state = st.number_input(
+                "Random State",
+                0, 100,
+                42,
+                key="rf_rs",
+                help="Seed for random number generation. Use the same value for reproducible results across multiple runs."
+            )
 
         model_params["Random Forest"] = {
             "n_estimators": rf_n_estimators,
@@ -193,22 +259,62 @@ def data_and_training_page():
             st.markdown("**XGBoost Regressor**")
             col1, col2 = st.columns(2)
             with col1:
-                xgb_n_estimators = st.slider("Number of Trees", 50, 500,
-                                            default_params["XGBoost"]["n_estimators"], 50)
-                xgb_max_depth = st.slider("Max Depth", 2, 10,
-                                         default_params["XGBoost"]["max_depth"])
-                xgb_learning_rate = st.slider("Learning Rate", 0.01, 0.3,
-                                             default_params["XGBoost"]["learning_rate"], 0.01)
-                xgb_subsample = st.slider("Subsample", 0.5, 1.0,
-                                         default_params["XGBoost"]["subsample"], 0.1)
+                xgb_n_estimators = st.slider(
+                    "Number of Trees",
+                    50, 500,
+                    default_params["XGBoost"]["n_estimators"],
+                    50,
+                    help="Number of boosting rounds (trees). More trees can improve performance but may overfit and increase training time. Combine with lower learning rate for better results."
+                )
+                xgb_max_depth = st.slider(
+                    "Max Depth",
+                    2, 10,
+                    default_params["XGBoost"]["max_depth"],
+                    help="Maximum depth of each tree. Deeper trees capture more complex patterns but may overfit. Typical values: 3-10. Lower values help prevent overfitting."
+                )
+                xgb_learning_rate = st.slider(
+                    "Learning Rate",
+                    0.01, 0.3,
+                    default_params["XGBoost"]["learning_rate"],
+                    0.01,
+                    help="Step size shrinkage to prevent overfitting. Lower values (0.01-0.1) make the model more robust but require more trees. Also called 'eta'."
+                )
+                xgb_subsample = st.slider(
+                    "Subsample",
+                    0.5, 1.0,
+                    default_params["XGBoost"]["subsample"],
+                    0.1,
+                    help="Fraction of samples used for each tree. Values < 1.0 introduce randomness and prevent overfitting. Typical values: 0.6-0.9."
+                )
             with col2:
-                xgb_reg_alpha = st.slider("L1 Regularization (Alpha)", 0.0, 1.0,
-                                         default_params["XGBoost"]["reg_alpha"], 0.1)
-                xgb_reg_lambda = st.slider("L2 Regularization (Lambda)", 0.0, 2.0,
-                                          default_params["XGBoost"]["reg_lambda"], 0.1)
-                xgb_colsample_bytree = st.slider("Column Subsample", 0.5, 1.0,
-                                                default_params["XGBoost"]["colsample_bytree"], 0.1)
-                xgb_random_state = st.number_input("Random State", 0, 100, 42, key="xgb_rs")
+                xgb_reg_alpha = st.slider(
+                    "L1 Regularization (Alpha)",
+                    0.0, 1.0,
+                    default_params["XGBoost"]["reg_alpha"],
+                    0.1,
+                    help="L1 regularization term on weights. Increases model simplicity and sparsity. Higher values = more regularization. Use to prevent overfitting."
+                )
+                xgb_reg_lambda = st.slider(
+                    "L2 Regularization (Lambda)",
+                    0.0, 2.0,
+                    default_params["XGBoost"]["reg_lambda"],
+                    0.1,
+                    help="L2 regularization term on weights. Smooths feature weights and prevents overfitting. Default is 1.0. Higher values = more regularization."
+                )
+                xgb_colsample_bytree = st.slider(
+                    "Column Subsample",
+                    0.5, 1.0,
+                    default_params["XGBoost"]["colsample_bytree"],
+                    0.1,
+                    help="Fraction of features (columns) used when constructing each tree. Values < 1.0 add randomness and prevent overfitting. Typical values: 0.6-0.9."
+                )
+                xgb_random_state = st.number_input(
+                    "Random State",
+                    0, 100,
+                    42,
+                    key="xgb_rs",
+                    help="Seed for random number generation. Use the same value for reproducible results across multiple runs."
+                )
 
             model_params["XGBoost"] = {
                 "n_estimators": xgb_n_estimators,
