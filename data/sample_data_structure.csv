@@ -1,0 +1,6 @@
+number_of_rooms,living_area,number_of_facades,garden_surface,terrace_surface,postal_code,subtype_of_property,state_of_building,equipped_kitchen,furnished,open_fire,terrace,garden,swimming_pool,price
+3,100,2,0,15,1000,apartment,good,1,0,0,1,0,0,250000
+4,150,2,200,0,2000,house,as_new,1,0,1,0,1,0,350000
+2,75,1,0,10,9000,apartment,to_renovate,0,0,0,1,0,0,180000
+5,200,3,500,20,3000,villa,just_renovated,1,1,1,1,1,1,550000
+3,120,2,100,0,5000,bungalow,good,1,0,0,0,1,0,280000
