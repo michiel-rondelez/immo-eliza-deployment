@@ -9,9 +9,17 @@ from sklearn.linear_model import LinearRegression
 from sklearn.svm import SVR
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.ensemble import RandomForestRegressor
-from xgboost import XGBRegressor
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+
+# Try to import XGBoost, but make it optional
+try:
+    from xgboost import XGBRegressor
+    XGBOOST_AVAILABLE = True
+except ImportError:
+    XGBOOST_AVAILABLE = False
+    print("WARNING: XGBoost not available. XGBoost models will be disabled.")
+    print("To install XGBoost, run: pip install xgboost")
 
 
 class ModelTrainer:
@@ -41,8 +49,12 @@ class ModelTrainer:
             "min_samples_leaf": 5,
             "max_features": "sqrt",
             "random_state": 42
-        },
-        "XGBoost": {
+        }
+    }
+
+    # Add XGBoost params only if available
+    if XGBOOST_AVAILABLE:
+        DEFAULT_PARAMS["XGBoost"] = {
             "n_estimators": 200,
             "max_depth": 4,
             "learning_rate": 0.05,
@@ -53,7 +65,6 @@ class ModelTrainer:
             "random_state": 42,
             "verbosity": 0
         }
-    }
 
     def __init__(self, model_params=None):
         """
@@ -81,6 +92,8 @@ class ModelTrainer:
         elif model_name == "Random Forest":
             return RandomForestRegressor(**params)
         elif model_name == "XGBoost":
+            if not XGBOOST_AVAILABLE:
+                raise ValueError("XGBoost is not installed. Run: pip install xgboost")
             return XGBRegressor(**params)
         else:
             raise ValueError(f"Unknown model: {model_name}")
@@ -116,6 +129,8 @@ class ModelTrainer:
                 "n_features": int(model.n_features_in_)
             }
         elif model_name == "XGBoost":
+            if not XGBOOST_AVAILABLE:
+                raise ValueError("XGBoost is not available")
             return {
                 "type": "XGBoost",
                 "booster": model.get_booster().save_raw("json").decode(),

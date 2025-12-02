@@ -16,7 +16,7 @@ import sys
 sys.path.append(str(Path(__file__).parent / "src"))
 
 from preprocessing import FeaturePreprocessor
-from models import ModelTrainer
+from models import ModelTrainer, XGBOOST_AVAILABLE
 
 # Page config
 st.set_page_config(
@@ -42,6 +42,11 @@ def main():
     """Main Streamlit application."""
     st.title("🏠 Immo Eliza ML Pipeline")
     st.markdown("**Train models, tune parameters, and predict property prices**")
+
+    # Show XGBoost availability warning
+    if not XGBOOST_AVAILABLE:
+        st.error("⚠️ XGBoost is not installed! Install it with: `pip install xgboost`")
+        st.info("The application will work with other models (Linear Regression, SVR, Decision Tree, Random Forest)")
 
     # Sidebar navigation
     page = st.sidebar.selectbox(
@@ -105,7 +110,11 @@ def data_and_training_page():
     default_params = ModelTrainer.DEFAULT_PARAMS
 
     # Create tabs for each model
-    tabs = st.tabs(["Linear Regression", "SVR", "Decision Tree", "Random Forest", "XGBoost"])
+    tab_names = ["Linear Regression", "SVR", "Decision Tree", "Random Forest"]
+    if XGBOOST_AVAILABLE:
+        tab_names.append("XGBoost")
+
+    tabs = st.tabs(tab_names)
 
     # Linear Regression
     with tabs[0]:
@@ -178,39 +187,40 @@ def data_and_training_page():
             "random_state": int(rf_random_state)
         }
 
-    # XGBoost
-    with tabs[4]:
-        st.markdown("**XGBoost Regressor**")
-        col1, col2 = st.columns(2)
-        with col1:
-            xgb_n_estimators = st.slider("Number of Trees", 50, 500,
-                                        default_params["XGBoost"]["n_estimators"], 50)
-            xgb_max_depth = st.slider("Max Depth", 2, 10,
-                                     default_params["XGBoost"]["max_depth"])
-            xgb_learning_rate = st.slider("Learning Rate", 0.01, 0.3,
-                                         default_params["XGBoost"]["learning_rate"], 0.01)
-            xgb_subsample = st.slider("Subsample", 0.5, 1.0,
-                                     default_params["XGBoost"]["subsample"], 0.1)
-        with col2:
-            xgb_reg_alpha = st.slider("L1 Regularization (Alpha)", 0.0, 1.0,
-                                     default_params["XGBoost"]["reg_alpha"], 0.1)
-            xgb_reg_lambda = st.slider("L2 Regularization (Lambda)", 0.0, 2.0,
-                                      default_params["XGBoost"]["reg_lambda"], 0.1)
-            xgb_colsample_bytree = st.slider("Column Subsample", 0.5, 1.0,
-                                            default_params["XGBoost"]["colsample_bytree"], 0.1)
-            xgb_random_state = st.number_input("Random State", 0, 100, 42, key="xgb_rs")
+    # XGBoost (conditionally shown)
+    if XGBOOST_AVAILABLE:
+        with tabs[4]:
+            st.markdown("**XGBoost Regressor**")
+            col1, col2 = st.columns(2)
+            with col1:
+                xgb_n_estimators = st.slider("Number of Trees", 50, 500,
+                                            default_params["XGBoost"]["n_estimators"], 50)
+                xgb_max_depth = st.slider("Max Depth", 2, 10,
+                                         default_params["XGBoost"]["max_depth"])
+                xgb_learning_rate = st.slider("Learning Rate", 0.01, 0.3,
+                                             default_params["XGBoost"]["learning_rate"], 0.01)
+                xgb_subsample = st.slider("Subsample", 0.5, 1.0,
+                                         default_params["XGBoost"]["subsample"], 0.1)
+            with col2:
+                xgb_reg_alpha = st.slider("L1 Regularization (Alpha)", 0.0, 1.0,
+                                         default_params["XGBoost"]["reg_alpha"], 0.1)
+                xgb_reg_lambda = st.slider("L2 Regularization (Lambda)", 0.0, 2.0,
+                                          default_params["XGBoost"]["reg_lambda"], 0.1)
+                xgb_colsample_bytree = st.slider("Column Subsample", 0.5, 1.0,
+                                                default_params["XGBoost"]["colsample_bytree"], 0.1)
+                xgb_random_state = st.number_input("Random State", 0, 100, 42, key="xgb_rs")
 
-        model_params["XGBoost"] = {
-            "n_estimators": xgb_n_estimators,
-            "max_depth": xgb_max_depth,
-            "learning_rate": float(xgb_learning_rate),
-            "reg_alpha": float(xgb_reg_alpha),
-            "reg_lambda": float(xgb_reg_lambda),
-            "subsample": float(xgb_subsample),
-            "colsample_bytree": float(xgb_colsample_bytree),
-            "random_state": int(xgb_random_state),
-            "verbosity": 0
-        }
+            model_params["XGBoost"] = {
+                "n_estimators": xgb_n_estimators,
+                "max_depth": xgb_max_depth,
+                "learning_rate": float(xgb_learning_rate),
+                "reg_alpha": float(xgb_reg_alpha),
+                "reg_lambda": float(xgb_reg_lambda),
+                "subsample": float(xgb_subsample),
+                "colsample_bytree": float(xgb_colsample_bytree),
+                "random_state": int(xgb_random_state),
+                "verbosity": 0
+            }
 
     # Train button
     st.subheader("4. Train Models")
