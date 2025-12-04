@@ -1,5 +1,4 @@
 services:
-  # FastAPI Backend Service
   - type: web
     name: immo-eliza-api
     env: python
@@ -9,21 +8,20 @@ services:
     startCommand: uvicorn src.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11
       - key: PYTHONUNBUFFERED
         value: 1
 
-  # Streamlit Frontend Service
   - type: web
     name: immo-eliza-streamlit
     env: python
     region: frankfurt
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0
+    startCommand: streamlit run streamlit_app.py --server.port $PORT --server.address 0.0.0.0 --server.enableCORS false
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.11
       - key: PYTHONUNBUFFERED
         value: 1
       - key: API_URL
