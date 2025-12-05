@@ -42,37 +42,9 @@ chmod +x run_api.sh run_streamlit.sh
 
 ### Running the Application
 
-#### Option 1: Streamlit Only (Recommended for beginners)
+Run the application with docker-compose up
 
-```bash
-# Start Streamlit UI
-./run_streamlit.sh
-# or
-streamlit run streamlit_app.py
-```
 
-Open your browser at `http://localhost:8501`
-
-#### Option 2: FastAPI Only
-
-```bash
-# Start FastAPI server
-./run_api.sh
-# or
-cd src && python -m uvicorn main:app --reload
-```
-
-API docs available at `http://localhost:8000/docs`
-
-#### Option 3: Both (Full Stack)
-
-```bash
-# Terminal 1: Start FastAPI
-./run_api.sh
-
-# Terminal 2: Start Streamlit
-./run_streamlit.sh
-```
 
 ## 📊 Data Format
 
