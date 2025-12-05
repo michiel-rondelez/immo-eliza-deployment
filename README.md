@@ -4,7 +4,7 @@ A comprehensive machine learning pipeline for Belgian real estate price predicti
 
 ## Deployed website
 
-Please visit the website [Immo eliza price prediction][https://link-url-here.org)(https://immo-eliza-streamlit-78pp.onrender.com) , where I deployed the end result
+Please visit the website [Immo eliza price prediction](https://immo-eliza-streamlit-78pp.onrender.com) , where I deployed the end result
 
 ## 📋 Features
 
