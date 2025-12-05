@@ -2,6 +2,10 @@
 
 A comprehensive machine learning pipeline for Belgian real estate price prediction with FastAPI backend and Streamlit UI. Features JSON-based model serialization, parameter tuning, and overfitting detection.
 
+## Deployed website
+
+Please visit the website [Immo eliza price prediction][https://link-url-here.org)(https://immo-eliza-streamlit-78pp.onrender.com) , where I deployed the end result
+
 ## 📋 Features
 
 ### Core Functionality
@@ -9,14 +13,13 @@ A comprehensive machine learning pipeline for Belgian real estate price predicti
 - **JSON Serialization**: All models and preprocessing pipelines stored as pure JSON (no pickle/joblib)
 - **Feature Engineering**: Automatic region mapping, outdoor space calculations, luxury scoring
 - **Preprocessing Pipeline**: Outlier capping, scaling, encoding with full JSON persistence
-- **Overfitting Detection**: Real-time monitoring of train/test performance gaps
+- **Overfitting Detection**: Monitoring of train/test performance gaps
 - **Parameter Tuning**: Interactive UI for adjusting all model hyperparameters
 
 ### API (FastAPI)
 - Train models with custom parameters
-- Make predictions via REST API
+- Make predictions via Fast API
 - Check model performance and overfitting status
-- Upload training data
 - Get feature information
 
 ### UI (Streamlit)
